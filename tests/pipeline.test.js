@@ -13,7 +13,7 @@ function gradient(W, H, dark = 0, bright = 255){
   }
   return d;
 }
-const params = over => ({palette: "gameboy", colors: 4, boost: 0, dither: "bayer", ditherAmt: 90, smooth: 0, outline: false, outlineThr: 50, autoContrast: false, ...over});
+const params = over => ({palette: "gameboy", colors: 4, boost: 0, ditherAmt: 90, autoContrast: false, ...over});
 const meanLum = (d) => { let s = 0; for (let i = 0; i < d.length; i += 4) s += lum(d[i], d[i+1], d[i+2]); return s / (d.length / 4); };
 const colorsUsed = (d) => { const s = new Set(); for (let i = 0; i < d.length; i += 4) s.add(`${d[i]},${d[i+1]},${d[i+2]}`); return s; };
 
@@ -47,8 +47,8 @@ test("process returns an opaque W x H image using only palette colours and leave
 
 test("auto contrast spreads a dim photo over the whole palette", () => {
   const W = 64, H = 32, dim = gradient(W, H, 20, 110);
-  const off = colorsUsed(P.process(dim, W, H, params({dither: "none"})).rgba).size;
-  const on = colorsUsed(P.process(dim, W, H, params({dither: "none", autoContrast: true})).rgba).size;
+  const off = colorsUsed(P.process(dim, W, H, params({ditherAmt: 0})).rgba).size;
+  const on = colorsUsed(P.process(dim, W, H, params({ditherAmt: 0, autoContrast: true})).rgba).size;
   assert.ok(on > off, `auto contrast should use more palette colours (${off} -> ${on})`);
   assert.equal(on, 4);
 });

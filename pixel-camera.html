@@ -198,7 +198,7 @@ const PP = PixelPipeline;
 // Settings the user can change, and the ones fixed by design
 const SIZES = [144, 160, 192, 224, 256, 320];
 const LCD_MODES = [{id: "off", name: "Off"}, {id: "light", name: "Light", gap: 0.85}, {id: "dark", name: "Dark", gap: 0.12}];
-const FIXED = {dither: "bayer", ditherAmt: 90, smooth: 0, outline: false, outlineThr: 50};
+const DITHER_AMOUNT = 90;           // ordered dithering strength, fixed by design
 const EXPORT_LCD_CELL = 4;          // saved PNG: every pixel is a 4x4 LCD cell
 const EXPORT_MIN_WIDTH = 1024;      // saved PNG without LCD: upscaled to at least this width
 const state = {palette: "gameboy", size: 160, lcd: "light", autoContrast: true};
@@ -356,7 +356,7 @@ function sourcePixels(w, h){
 }
 function pipelineParams(){
   const p = PP.PALETTES.find(x => x.id === state.palette);
-  return {...FIXED, palette: p.colors ? p.id : "adaptive", colors: 4, boost: p.boost || 0, autoContrast: state.autoContrast};
+  return {palette: p.id, colors: 4, boost: p.boost || 0, ditherAmt: DITHER_AMOUNT, autoContrast: state.autoContrast};
 }
 function render(){
   const t0 = performance.now(), forPhoto = photoId, params = pipelineParams();

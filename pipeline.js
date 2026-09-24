@@ -77,42 +77,6 @@ function saturate(d, amt){
     d[i] = l + (d[i] - l) * f; d[i+1] = l + (d[i+1] - l) * f; d[i+2] = l + (d[i+2] - l) * f;
   }
 }
-// Kuwahara filter using summed-area tables: O(1) per quadrant.
-function kuwahara(d, w, h, r){
-  const W1 = w + 1, N = W1 * (h + 1);
-  const sR = new Float64Array(N), sG = new Float64Array(N), sB = new Float64Array(N), sL = new Float64Array(N), sQ = new Float64Array(N);
-  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-    const p = (y * w + x) * 4, i = (y + 1) * W1 + x + 1, a = i - 1, b = i - W1, c = b - 1;
-    const R = d[p], G = d[p+1], B = d[p+2], L = 0.299 * R + 0.587 * G + 0.114 * B;
-    sR[i] = R + sR[a] + sR[b] - sR[c]; sG[i] = G + sG[a] + sG[b] - sG[c]; sB[i] = B + sB[a] + sB[b] - sB[c];
-    sL[i] = L + sL[a] + sL[b] - sL[c]; sQ[i] = L * L + sQ[a] + sQ[b] - sQ[c];
-  }
-  const box = (t, x0, y0, x1, y1) => t[(y1+1)*W1 + x1+1] - t[y0*W1 + x1+1] - t[(y1+1)*W1 + x0] + t[y0*W1 + x0];
-  const out = new Uint8ClampedArray(d.length);
-  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-    let best = Infinity, bx0 = 0, by0 = 0, bx1 = 0, by1 = 0;
-    for (let q = 0; q < 4; q++) {
-      const x0 = Math.max(0, q & 1 ? x : x - r), x1 = Math.min(w - 1, q & 1 ? x + r : x);
-      const y0 = Math.max(0, q & 2 ? y : y - r), y1 = Math.min(h - 1, q & 2 ? y + r : y);
-      const n = (x1 - x0 + 1) * (y1 - y0 + 1), m = box(sL, x0, y0, x1, y1) / n;
-      const v = box(sQ, x0, y0, x1, y1) / n - m * m;
-      if (v < best) { best = v; bx0 = x0; by0 = y0; bx1 = x1; by1 = y1; }
-    }
-    const n = (bx1 - bx0 + 1) * (by1 - by0 + 1), p = (y * w + x) * 4;
-    out[p] = box(sR, bx0, by0, bx1, by1) / n; out[p+1] = box(sG, bx0, by0, bx1, by1) / n; out[p+2] = box(sB, bx0, by0, bx1, by1) / n; out[p+3] = 255;
-  }
-  return out;
-}
-function halve(d, w, h){
-  const W = w >> 1, H = h >> 1, o = new Uint8ClampedArray(W * H * 4);
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-    const a = ((2*y) * w + 2*x) * 4, b = a + 4, c = a + w * 4, e = c + 4, p = (y * W + x) * 4;
-    for (let k = 0; k < 3; k++) o[p+k] = (d[a+k] + d[b+k] + d[c+k] + d[e+k]) / 4;
-    o[p+3] = 255;
-  }
-  return o;
-}
-
 // ---------- Oklab color space (perceptual distances) ----------
 function toLin(v){ v = Math.min(255, Math.max(0, v)) / 255; return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }
 function toSrgb(v){ v = v <= 0.0031308 ? 12.92 * v : 1.055 * Math.pow(Math.max(v, 0), 1 / 2.4) - 0.055; return Math.min(255, Math.max(0, Math.round(v * 255))); }
@@ -135,7 +99,7 @@ function fromLab(L, A, B){
 }
 function mulberry32(a){ return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 
-// k-means (k-means++ seeding, fixed seed so sliders don't flicker) in Oklab
+// k-means (k-means++ seeding, fixed seed so results don't flicker) in Oklab
 function kmeansPalette(d, n, k){
   const rand = mulberry32(12345);
   const step = Math.max(1, Math.floor(n / 6000)), S = [];
@@ -162,16 +126,13 @@ function kmeansPalette(d, n, k){
   }
   return C.map(c => fromLab(c[0], c[1], c[2]));
 }
-const snap15 = v => Math.round(Math.round(v * 31 / 255) * 255 / 31);
 const hexToRgb = h => [parseInt(h.slice(1,3),16), parseInt(h.slice(3,5),16), parseInt(h.slice(5,7),16)];
 
 // ---------- Pipeline stages ----------
 function buildPalette(d, n, params){
   if (params.palette in FIXED_PALETTES) return FIXED_PALETTES[params.palette].map(hexToRgb);
-  let pal = kmeansPalette(d, n, params.colors);
-  if (params.palette === "adaptive15") pal = pal.map(c => c.map(snap15));
   const seen = new Set();
-  return pal.filter(c => { const k = c.join(); if (seen.has(k)) return false; seen.add(k); return true; });
+  return kmeansPalette(d, n, params.colors).filter(c => { const k = c.join(); if (seen.has(k)) return false; seen.add(k); return true; });
 }
 // Nearest palette entry in Oklab, memoized on a 6-bit-per-channel key.
 function makeNearest(palLab){
@@ -185,46 +146,7 @@ function makeNearest(palLab){
     return cache[key] = bi;
   };
 }
-// Outline mask: pixels on the dark side of strong Sobel edges.
-function outlineMask(d, W, H, sensitivity){
-  const n = W * H, Lm = new Float32Array(n);
-  for (let i = 0; i < n; i++) Lm[i] = 0.299 * d[i*4] + 0.587 * d[i*4+1] + 0.114 * d[i*4+2];
-  const at = (x, y) => Lm[Math.min(H-1, Math.max(0, y)) * W + Math.min(W-1, Math.max(0, x))];
-  const thr = 200 - sensitivity * 1.7; // higher sensitivity = lower threshold
-  const edge = new Uint8Array(n);
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-    const gx = -at(x-1,y-1) - 2*at(x-1,y) - at(x-1,y+1) + at(x+1,y-1) + 2*at(x+1,y) + at(x+1,y+1);
-    const gy = -at(x-1,y-1) - 2*at(x,y-1) - at(x+1,y-1) + at(x-1,y+1) + 2*at(x,y+1) + at(x+1,y+1);
-    if (Math.hypot(gx, gy) / 4 > thr) {
-      let s = 0; for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) s += at(x+i, y+j);
-      if (at(x, y) < s / 9) edge[y * W + x] = 1;
-    }
-  }
-  return edge;
-}
-// For each palette entry, the nearest clearly darker entry (itself if none).
-function darkerMap(palLab){
-  const K = palLab.length;
-  return palLab.map((q, idx) => {
-    const t = [q[0] * 0.55, q[1] * 0.9, q[2] * 0.9]; let bi = idx, bd = Infinity;
-    for (let c = 0; c < K; c++) { const p = palLab[c]; if (p[0] >= q[0] - 0.02 && c !== idx) continue; const dd = (t[0]-p[0])**2 + (t[1]-p[1])**2 + (t[2]-p[2])**2; if (dd < bd) { bd = dd; bi = c; } }
-    return bi;
-  });
-}
-function ditherFloydSteinberg(d, W, H, pal, nearest, amt){
-  const n = W * H, idx = new Int16Array(n), f = new Float32Array(n * 3);
-  for (let i = 0; i < n; i++) { f[i*3] = d[i*4]; f[i*3+1] = d[i*4+1]; f[i*3+2] = d[i*4+2]; }
-  const push = (x, y, er, eg, eb, wt) => { if (x < 0 || x >= W || y >= H) return; const j = (y * W + x) * 3; f[j] += er * wt; f[j+1] += eg * wt; f[j+2] += eb * wt; };
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-    const i = y * W + x, j = i * 3;
-    // Clamp first: error the palette can never absorb (e.g. blue in an all-green palette) must not pile up
-    const r = Math.min(255, Math.max(0, f[j])), g = Math.min(255, Math.max(0, f[j+1])), b = Math.min(255, Math.max(0, f[j+2]));
-    const c = nearest(r, g, b); idx[i] = c;
-    const er = (r - pal[c][0]) * amt, eg = (g - pal[c][1]) * amt, eb = (b - pal[c][2]) * amt;
-    push(x+1, y, er, eg, eb, 7/16); push(x-1, y+1, er, eg, eb, 3/16); push(x, y+1, er, eg, eb, 5/16); push(x+1, y+1, er, eg, eb, 1/16);
-  }
-  return idx;
-}
+// Ordered (Bayer 4x4) dithering: the same offset is added to all three channels, then the nearest colour is picked.
 function ditherBayer(d, W, H, K, nearest, amt){
   const idx = new Int16Array(W * H);
   const spread = amt * 255 / Math.max(2, Math.cbrt(K) * 1.6);
@@ -234,46 +156,34 @@ function ditherBayer(d, W, H, K, nearest, amt){
   }
   return idx;
 }
-function compose(idx, pal, edge, darker){
+function compose(idx, pal){
   const n = idx.length, od = new Uint8ClampedArray(n * 4);
   for (let i = 0; i < n; i++) {
-    const c = edge && edge[i] ? darker[idx[i]] : idx[i], p = i * 4;
-    od[p] = pal[c][0]; od[p+1] = pal[c][1]; od[p+2] = pal[c][2]; od[p+3] = 255;
+    const c = pal[idx[i]], p = i * 4;
+    od[p] = c[0]; od[p+1] = c[1]; od[p+2] = c[2]; od[p+3] = 255;
   }
   return od;
 }
 
 // ---------- Main entry ----------
-// Size factor of the input relative to the output: smoothing runs at 2x.
-function workScale(params){ return params.smooth > 0 ? 2 : 1; }
-
-// `data` is RGBA at (W * workScale) x (H * workScale). It is not modified.
+// `data` is RGBA at W x H. It is not modified.
+// params: {palette: id from PALETTES, colors: count for "photo", boost: saturation %, ditherAmt: 0-100, autoContrast: bool}
 // Returns the W x H result as RGBA plus the palette sorted dark to light.
 function process(data, W, H, params){
-  const s = workScale(params);
-  if (data.length !== W * s * H * s * 4) throw new Error("Input size does not match output size");
-  let d = new Uint8ClampedArray(data);
+  if (data.length !== W * H * 4) throw new Error("Input size does not match output size");
+  const d = new Uint8ClampedArray(data);
   if (params.autoContrast) autoContrast(d);
   saturate(d, params.boost);
-  if (s === 2) d = halve(kuwahara(d, W * 2, H * 2, params.smooth), W * 2, H * 2);
-  const n = W * H;
 
-  const pal = buildPalette(d, n, params);
-  const K = pal.length, palLab = pal.map(c => toLab(c[0], c[1], c[2]));
-  const nearest = makeNearest(palLab);
-  const edge = params.outline ? outlineMask(d, W, H, params.outlineThr) : null;
-  const darker = darkerMap(palLab);
-
-  const amt = params.dither === "none" ? 0 : params.ditherAmt / 100;
-  const idx = params.dither === "fs" && amt > 0
-    ? ditherFloydSteinberg(d, W, H, pal, nearest, amt)
-    : ditherBayer(d, W, H, K, nearest, amt);
+  const pal = buildPalette(d, W * H, params);
+  const palLab = pal.map(c => toLab(c[0], c[1], c[2]));
+  const idx = ditherBayer(d, W, H, pal.length, makeNearest(palLab), params.ditherAmt / 100);
 
   const swatches = pal.map((c, i) => [c, palLab[i][0]]).sort((a, b) => a[1] - b[1]).map(([c]) => c);
-  return {rgba: compose(idx, pal, edge, darker), width: W, height: H, swatches};
+  return {rgba: compose(idx, pal), width: W, height: H, swatches};
 }
 
-const api = {PALETTES, FIXED_PALETTES, outputSize, autoContrast, lcd, workScale, process, toLab, fromLab, kuwahara, halve, saturate, kmeansPalette, snap15};
+const api = {PALETTES, FIXED_PALETTES, outputSize, autoContrast, lcd, process, toLab, fromLab, saturate, kmeansPalette};
 if (typeof module !== "undefined" && module.exports) module.exports = api;
 else root.PixelPipeline = api;
 })(typeof self !== "undefined" ? self : this);

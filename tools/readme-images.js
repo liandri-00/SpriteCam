@@ -22,7 +22,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 const PALETTE_IDS = ["gameboy", "pocket", "haze", "amber"];
 const PAGE_SCRIPT = `(async () => {
   const PALETTE_IDS = ${JSON.stringify(PALETTE_IDS)};
-  const SHORT = 160, LCD_GAP = 0.85, FIXED = {dither: "bayer", ditherAmt: 90, smooth: 0, outline: false, outlineThr: 50};
+  const SHORT = 160, LCD_GAP = 0.85, DITHER_AMOUNT = 90;
   const TILE_W = 1280, CAPTION = 96, GAP = 32, BG = "#1d1a26", CAPTION_BG = "#282435", INK = "#ebe8f3";
   const PP = window.PixelPipeline;
   await document.fonts.ready;
@@ -48,7 +48,7 @@ const PAGE_SCRIPT = `(async () => {
   const [W, H] = PP.outputSize(photo.width, photo.height, SHORT), pixels = resizeTo(photo, W, H), cell = TILE_W / W;
   const tiles = PALETTE_IDS.map(id => {
     const p = PP.PALETTES.find(x => x.id === id);
-    const art = PP.process(pixels, W, H, {...FIXED, palette: id, colors: 4, boost: p.boost || 0, autoContrast: true});
+    const art = PP.process(pixels, W, H, {palette: id, colors: 4, boost: p.boost || 0, ditherAmt: DITHER_AMOUNT, autoContrast: true});
     const img = PP.lcd(art.rgba, W, H, cell, LCD_GAP), canvas = document.createElement("canvas");
     canvas.width = img.width; canvas.height = img.height;
     canvas.getContext("2d").putImageData(new ImageData(img.rgba, img.width, img.height), 0, 0);
