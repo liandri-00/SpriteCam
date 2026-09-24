@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Privacy · SpriteCam</title>
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="icon" href="icons/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="description" content="SpriteCam collects no data: photos are processed in your browser and never uploaded.">
+<meta name="theme-color" content="#d3d0dc" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1d1a26" media="(prefers-color-scheme: dark)">
+<link rel="stylesheet" href="site.css">
+<style>
+main{max-width:720px}
+.note section{margin-top:28px}
+.note p,.note ul{margin:0 0 10px}
+.note ul{padding-left:22px}
+.note li{margin-bottom:6px}
+.summary{background:var(--panel); border-radius:16px; padding:16px 18px; border-left:6px solid var(--plum); font-size:17px}
+.summary p{margin:0}
+.back{display:inline-block; margin-top:6px; font-weight:700}
+</style>
+</head>
+<body>
+<main class="note">
+  <header>
+    <h1><a href="./">SpriteCam</a></h1>
+    <p>Privacy note · last updated 24 September 2026</p>
+  </header>
+
+  <div class="summary">
+    <p><strong>SpriteCam collects nothing.</strong> Your photos are processed inside your browser and never leave your device.</p>
+  </div>
+
+  <section aria-labelledby="photos">
+    <h2 id="photos">Your photos</h2>
+    <ul>
+      <li>When you take or choose a photo, your browser reads it into memory on your device. The pixel-art conversion runs there too, in plain JavaScript.</li>
+      <li>Photos and results are never sent to a server. There is no server: the site is a set of static files.</li>
+      <li>Nothing is stored after you close the page. SpriteCam uses no cookies, no local storage and no databases.</li>
+      <li>When you save or share an image, it goes where you send it: your downloads folder or the app you pick in your device's share sheet.</li>
+    </ul>
+  </section>
+
+  <section aria-labelledby="tracking">
+    <h2 id="tracking">No tracking</h2>
+    <ul>
+      <li>No analytics, no ads, no accounts, no AI services.</li>
+      <li>Fonts and icons are served from this site, so the page makes no requests to third parties.</li>
+    </ul>
+  </section>
+
+  <section aria-labelledby="hosting">
+    <h2 id="hosting">Hosting</h2>
+    <p>The site is hosted on GitHub Pages. Like any web host, GitHub may log technical data such as your IP address when your browser downloads the page, for security and operations. SpriteCam has no access to those logs. See the <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement">GitHub privacy statement</a>.</p>
+    <p>If you use the support link, you leave SpriteCam for the payment provider's site, where their own privacy policy applies.</p>
+  </section>
+
+  <section aria-labelledby="contact">
+    <h2 id="contact">Questions</h2>
+    <p>The source code is public, so you can check all of this yourself. Questions are welcome as an <a href="https://github.com/liandri-00/SpriteCam/issues">issue on GitHub</a>.</p>
+    <a class="back" href="./">← Back to SpriteCam</a>
+  </section>
+
+  <footer class="site-footer">
+    <p>SpriteCam is free to use, with no ads and no tracking.</p>
+  </footer>
+</main>
+</body>
+</html>

@@ -7,52 +7,14 @@
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
 <link rel="icon" href="icons/favicon-32.png" sizes="32x32" type="image/png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="description" content="Turn a photo into handheld-console pixel art, right in your browser. No AI, no uploads.">
+<meta name="theme-color" content="#d3d0dc" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1d1a26" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-title" content="SpriteCam">
 <link rel="preload" href="fonts/atkinson-hyperlegible-400.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="site.css">
 <style>
-/* Fonts are self-hosted so the page makes no third-party requests (SIL OFL 1.1, see fonts/). */
-@font-face{font-family:"Silkscreen"; font-style:normal; font-weight:400; font-display:swap; src:url("fonts/silkscreen-400.woff2") format("woff2")}
-@font-face{font-family:"Silkscreen"; font-style:normal; font-weight:700; font-display:swap; src:url("fonts/silkscreen-700.woff2") format("woff2")}
-@font-face{font-family:"Atkinson Hyperlegible"; font-style:normal; font-weight:400; font-display:swap; src:url("fonts/atkinson-hyperlegible-400.woff2") format("woff2")}
-@font-face{font-family:"Atkinson Hyperlegible"; font-style:normal; font-weight:700; font-display:swap; src:url("fonts/atkinson-hyperlegible-700.woff2") format("woff2")}
-
-:root{
-  --shell:#d3d0dc; --panel:#c3bfcf; --ink:#1e1a2c; --muted:#565070;
-  --plum:#4b3d80; --lilac:#8f82c4; --bezel:#3a3548; --screen:#0f0d17; --line:#a9a3bb;
-  --on-plum:#ffffff;
-  box-sizing:border-box;
-  padding-top:env(safe-area-inset-top,0px);
-  padding-bottom:env(safe-area-inset-bottom,0px);
-}
-@media (prefers-color-scheme: dark){
-  :root:not([data-theme="light"]){
-    --shell:#1d1a26; --panel:#282435; --ink:#ebe8f3; --muted:#a8a1bf;
-    --plum:#9a8ae0; --lilac:#6d5fb0; --bezel:#0c0b12; --screen:#050409; --line:#3d3850;
-    --on-plum:#140f24;
-  }
-}
-:root[data-theme="dark"]{
-  --shell:#1d1a26; --panel:#282435; --ink:#ebe8f3; --muted:#a8a1bf;
-  --plum:#9a8ae0; --lilac:#6d5fb0; --bezel:#0c0b12; --screen:#050409; --line:#3d3850;
-  --on-plum:#140f24;
-}
-*,*::before,*::after{box-sizing:inherit}
-[hidden]{display:none!important}
-html{scroll-padding-top:env(safe-area-inset-top,0px)}
-body{
-  margin:0; background:var(--shell); color:var(--ink);
-  font-family:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",sans-serif;
-  font-size:16px; line-height:1.45;
-}
-main{max-width:1120px; margin:0 auto; padding:20px 16px 40px}
-header{margin-bottom:18px}
-h1{
-  font-family:"Silkscreen",ui-monospace,"Courier New",monospace; font-weight:700;
-  font-size:clamp(28px,6vw,46px); line-height:1; margin:0 0 8px; letter-spacing:.02em;
-  color:var(--plum);
-  text-shadow:3px 3px 0 var(--line);
-}
-header p{margin:0; color:var(--muted); max-width:60ch}
-
 .layout{display:grid; gap:20px}
 @media (min-width:880px){ .layout{grid-template-columns:minmax(0,1.65fr) minmax(300px,1fr); align-items:start} }
 
@@ -120,11 +82,21 @@ legend{font-family:"Silkscreen",ui-monospace,monospace; font-size:15px; color:va
 .switch input:checked{background:var(--plum)}
 .switch input:checked::after{transform:translateX(20px)}
 
-.site-footer{margin-top:32px; padding-top:16px; border-top:2px solid var(--line); color:var(--muted); font-size:15px}
-.site-footer p{margin:0}
-.support{color:var(--plum); font-weight:700; text-underline-offset:3px}
-.support:focus-visible{outline:3px solid var(--lilac); outline-offset:2px; border-radius:4px}
-@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+/* About: how to use it and the privacy promise */
+.about{margin-top:40px; display:grid; gap:20px}
+@media (min-width:880px){ .about{grid-template-columns:minmax(0,1.65fr) minmax(300px,1fr); align-items:start} }
+.steps{list-style:none; margin:0; padding:0; display:grid; gap:14px; counter-reset:step}
+@media (min-width:560px){ .steps{grid-template-columns:repeat(3,minmax(0,1fr))} }
+.steps li{counter-increment:step; position:relative; padding-top:44px}
+.steps li::before{
+  content:counter(step); position:absolute; top:0; left:0; width:34px; height:34px; display:grid; place-items:center;
+  font-family:"Silkscreen",ui-monospace,monospace; font-weight:700; font-size:18px;
+  background:var(--plum); color:var(--on-plum); box-shadow:3px 3px 0 var(--line);
+}
+.steps strong{display:block; margin-bottom:2px}
+.steps p,.privacy p{margin:0; color:var(--muted); font-size:15px}
+.privacy{background:var(--panel); border-radius:16px; padding:16px 18px; border-left:6px solid var(--plum)}
+.privacy p + p{margin-top:8px}
 </style>
 </head>
 <body>
@@ -179,11 +151,28 @@ legend{font-family:"Silkscreen",ui-monospace,monospace; font-size:15px; color:va
     </aside>
   </div>
 
+  <div class="about">
+    <section aria-labelledby="how-heading">
+      <h2 id="how-heading">How to use it</h2>
+      <ol class="steps">
+        <li><strong>Take or choose a photo</strong><p>Use your camera, pick one from your gallery, or drop a file on the screen.</p></li>
+        <li><strong>Pick a palette</strong><p>Each palette is a different old screen. Raise the resolution if faces look too blocky.</p></li>
+        <li><strong>Save or share</strong><p>You get a PNG with crisp, square pixels, ready to post.</p></li>
+      </ol>
+    </section>
+    <section class="privacy" aria-labelledby="privacy-heading">
+      <h2 id="privacy-heading">Your photos stay yours</h2>
+      <p>Everything runs in your browser. Photos are never uploaded, there's no account, no analytics and no AI.</p>
+      <p><a href="privacy.html">Read the privacy note</a></p>
+    </section>
+  </div>
+
   <footer class="site-footer">
     <p>Free to use, no ads, no tracking. If you enjoy it, you can
       <!-- TODO: replace href="#" with the PayPal donation link -->
-      <a class="support" id="support" href="#" rel="noopener">support the project</a>.
+      <a id="support" href="#" rel="noopener">support the project</a>.
     </p>
+    <p><a href="privacy.html">Privacy</a> · <a href="https://github.com/liandri-00/SpriteCam">Source code</a></p>
   </footer>
 </main>
 

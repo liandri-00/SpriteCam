@@ -4,7 +4,7 @@
 // Usage: node tools/readme-images.js <site root> <photo.jpg> <out dir>   (set CHROME to override the browser path)
 const http = require("http"), fs = require("fs"), path = require("path"), {spawn} = require("child_process");
 const [ROOT, PHOTO, OUT] = process.argv.slice(2);
-const types = {".html": "text/html", ".js": "text/javascript", ".woff2": "font/woff2", ".svg": "image/svg+xml", ".png": "image/png", ".jpg": "image/jpeg"};
+const types = {".html": "text/html", ".css": "text/css", ".webmanifest": "application/manifest+json", ".js": "text/javascript", ".woff2": "font/woff2", ".svg": "image/svg+xml", ".png": "image/png", ".jpg": "image/jpeg"};
 const server = http.createServer((req, res) => {
   const url = decodeURIComponent(req.url.split("?")[0]);
   const p = url === "/__photo.jpg" ? PHOTO : path.join(ROOT, url);
