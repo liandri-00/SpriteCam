@@ -16,7 +16,9 @@ Android/iOS store releases are explicitly out of scope for now.
 A working web app: take or choose a photo, pick a palette, see the result,
 save or share it as a PNG.
 
-- `index.html`: the page and UI logic.
+- `index.html`: the page and UI logic. `privacy.html`: the privacy note.
+- `site.css`: fonts, colours and layout shared by both pages.
+- `manifest.webmanifest`: lets the app be added to the home screen.
 - `pipeline.js`: the image processing. Pure functions with no DOM access; it runs
   in a Web Worker (`worker.js`), on the main thread as a fallback (for example
   when the page is opened from disk), and under Node for tests.
@@ -106,19 +108,19 @@ preview in plain JavaScript looks feasible at 160 px.
 
 ### Phase 1: publishable v1 (in progress)
 
-Done: the app, save/share, self-hosted fonts, icons, support-link placeholder,
-README images, unit tests, git repository.
+Done: the app, save/share, self-hosted fonts, icons, README images, unit tests,
+git repository, landing section (how to use it, privacy promise), web app
+manifest, privacy note (`privacy.html`), README for GitHub visitors. Styles
+shared by both pages live in `site.css`.
 
 Still to do:
 
-- Landing section: what it does, that photos never leave the device, how to use it.
-- Web app manifest, so it can be added to the home screen (icons already exist).
-- Privacy note page: no data collected, no analytics, no uploads.
 - Support link: PayPal donation link to be provided; the placeholder is marked
   with a TODO in `index.html`.
-- README for GitHub visitors: what the project is, how it works, the
-  before/after images.
-- Deploy to GitHub Pages from a public repo.
+- Choose a licence before the repo goes public.
+- Deploy to GitHub Pages from a public repo (`liandri-00/SpriteCam`, served at
+  https://liandri-00.github.io/SpriteCam/). The README, footer and privacy note
+  already link there.
 
 ### Phase 2: live camera
 
