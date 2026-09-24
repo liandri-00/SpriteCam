@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>bitShot</title>
+<title>SpriteCam</title>
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
 <link rel="icon" href="icons/favicon-32.png" sizes="32x32" type="image/png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -130,7 +130,7 @@ legend{font-family:"Silkscreen",ui-monospace,monospace; font-size:15px; color:va
 <body>
 <main>
   <header>
-    <h1>bitShot</h1>
+    <h1>SpriteCam</h1>
     <p>Turns a photo into handheld-console pixel art: tiny palettes, dithering and an old LCD screen. Everything happens on your device, with no AI and no uploads.</p>
   </header>
 
@@ -436,7 +436,7 @@ function makeExport(){
   exportJob = job;
   return job;
 }
-function fileName(){ return "bitshot-" + new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-") + ".png"; }
+function fileName(){ return "spritecam-" + new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-") + ".png"; }
 
 $("save").addEventListener("click", async () => {
   if (!art) return;

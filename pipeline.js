@@ -1,4 +1,4 @@
-// bitShot image pipeline. Pure functions with no DOM access, so the same
+// SpriteCam image pipeline. Pure functions with no DOM access, so the same
 // file runs inside the Web Worker (worker.js), on the main thread as a
 // fallback, and under Node for tests.
 (function (root) {

@@ -1,4 +1,4 @@
-# bitShot: project brief
+# SpriteCam: project brief
 
 ## Goal
 
@@ -81,7 +81,7 @@ won't ship to app stores.
 
 Saved PNG: with LCD it is 4x the art size (160 x 213 becomes 640 x 852),
 without LCD it is upscaled to at least 1024 px wide. Files are named
-`bitshot-<date>.png`. Share uses the Web Share API where available.
+`spritecam-<date>.png`. Share uses the Web Share API where available.
 
 ## Decisions made while testing (on real photos)
 

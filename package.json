@@ -1,5 +1,5 @@
 {
-  "name": "bitshot",
+  "name": "spritecam",
   "private": true,
   "description": "Turns photos into handheld-console pixel art, entirely in the browser.",
   "scripts": {
