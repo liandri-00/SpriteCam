@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>bitShot</title>
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="icon" href="icons/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="preload" href="fonts/atkinson-hyperlegible-400.woff2" as="font" type="font/woff2" crossorigin>
+<style>
+/* Fonts are self-hosted so the page makes no third-party requests (SIL OFL 1.1, see fonts/). */
+@font-face{font-family:"Silkscreen"; font-style:normal; font-weight:400; font-display:swap; src:url("fonts/silkscreen-400.woff2") format("woff2")}
+@font-face{font-family:"Silkscreen"; font-style:normal; font-weight:700; font-display:swap; src:url("fonts/silkscreen-700.woff2") format("woff2")}
+@font-face{font-family:"Atkinson Hyperlegible"; font-style:normal; font-weight:400; font-display:swap; src:url("fonts/atkinson-hyperlegible-400.woff2") format("woff2")}
+@font-face{font-family:"Atkinson Hyperlegible"; font-style:normal; font-weight:700; font-display:swap; src:url("fonts/atkinson-hyperlegible-700.woff2") format("woff2")}
+
+:root{
+  --shell:#d3d0dc; --panel:#c3bfcf; --ink:#1e1a2c; --muted:#565070;
+  --plum:#4b3d80; --lilac:#8f82c4; --bezel:#3a3548; --screen:#0f0d17; --line:#a9a3bb;
+  --on-plum:#ffffff;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --shell:#1d1a26; --panel:#282435; --ink:#ebe8f3; --muted:#a8a1bf;
+    --plum:#9a8ae0; --lilac:#6d5fb0; --bezel:#0c0b12; --screen:#050409; --line:#3d3850;
+    --on-plum:#140f24;
+  }
+}
+:root[data-theme="dark"]{
+  --shell:#1d1a26; --panel:#282435; --ink:#ebe8f3; --muted:#a8a1bf;
+  --plum:#9a8ae0; --lilac:#6d5fb0; --bezel:#0c0b12; --screen:#050409; --line:#3d3850;
+  --on-plum:#140f24;
+}
+*,*::before,*::after{box-sizing:inherit}
+[hidden]{display:none!important}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{
+  margin:0; background:var(--shell); color:var(--ink);
+  font-family:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",sans-serif;
+  font-size:16px; line-height:1.45;
+}
+main{max-width:1120px; margin:0 auto; padding:20px 16px 40px}
+header{margin-bottom:18px}
+h1{
+  font-family:"Silkscreen",ui-monospace,"Courier New",monospace; font-weight:700;
+  font-size:clamp(28px,6vw,46px); line-height:1; margin:0 0 8px; letter-spacing:.02em;
+  color:var(--plum);
+  text-shadow:3px 3px 0 var(--line);
+}
+header p{margin:0; color:var(--muted); max-width:60ch}
+
+.layout{display:grid; gap:20px}
+@media (min-width:880px){ .layout{grid-template-columns:minmax(0,1.65fr) minmax(300px,1fr); align-items:start} }
+
+.bezel{
+  background:var(--bezel); border-radius:22px 22px 22px 60px; padding:18px 18px 22px;
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.08), 0 6px 0 rgba(0,0,0,.18);
+}
+.screen{
+  position:relative; background:var(--screen); border-radius:6px; min-height:280px;
+  display:grid; place-items:center; overflow:hidden;
+}
+.screen.loaded{min-height:0; padding:8px}
+.screen canvas{image-rendering:pixelated; image-rendering:crisp-edges; display:block; max-width:none}
+.screen canvas.shrunk{image-rendering:auto; max-width:100%}
+#orig{position:absolute; inset:0; margin:auto; image-rendering:auto; display:none}
+.screen.comparing #orig{display:block}
+.empty{color:#b9b2d6; text-align:center; padding:30px 20px; font-family:"Silkscreen",ui-monospace,monospace; font-size:15px; line-height:1.6}
+.empty small{display:block; font-family:"Atkinson Hyperlegible",system-ui,sans-serif; font-size:14px; color:#8a83a8; margin-top:6px}
+.screen.drag{outline:3px dashed var(--lilac); outline-offset:-10px}
+.readout{display:flex; flex-wrap:wrap; align-items:center; gap:10px 14px; margin-top:14px; color:#c9c3e2; font-size:14px}
+.swatches{display:flex; flex-wrap:wrap; gap:3px}
+.swatches span{width:14px; height:14px; border-radius:2px; box-shadow:inset 0 0 0 1px rgba(255,255,255,.15)}
+.stat{font-family:"Silkscreen",ui-monospace,monospace; font-size:13px}
+
+.actions{display:flex; flex-wrap:wrap; gap:10px; margin-top:16px}
+button,.filebtn{
+  font:inherit; font-weight:700; font-size:15px; cursor:pointer; border-radius:999px;
+  padding:10px 18px; border:2px solid var(--plum); background:transparent; color:var(--plum);
+  display:inline-flex; align-items:center; gap:8px; min-height:44px;
+}
+.primary{background:var(--plum); color:var(--on-plum)}
+button:disabled{opacity:.45; cursor:not-allowed}
+button:focus-visible,.filebtn:focus-within,input:focus-visible{outline:3px solid var(--lilac); outline-offset:2px}
+.filebtn input{position:absolute; width:1px; height:1px; opacity:0; pointer-events:none}
+.msg{margin-top:10px; font-size:14px; color:var(--muted); min-height:1.4em}
+
+.controls{background:var(--panel); border-radius:16px; padding:6px 18px 16px}
+fieldset{border:0; border-top:2px solid var(--line); margin:0; padding:14px 0 10px}
+fieldset:first-child{border-top:0}
+legend{font-family:"Silkscreen",ui-monospace,monospace; font-size:15px; color:var(--plum); padding:0 6px 0 0}
+.hint{font-size:13px; color:var(--muted); margin:8px 0 0}
+.label{font-size:15px; font-weight:700; margin:4px 0 8px}
+
+/* Palette picker: one button per palette, showing its colours */
+.palettes{display:grid; grid-template-columns:repeat(auto-fill,minmax(132px,1fr)); gap:8px; margin-top:6px}
+.palettes button{
+  flex-direction:column; align-items:stretch; gap:5px; border-radius:12px; padding:6px 8px 7px;
+  min-height:0; font-size:13px; font-weight:700; border-color:var(--line); color:var(--ink); text-align:left;
+}
+.palettes button:hover{border-color:var(--plum)}
+.palettes button[aria-pressed="true"]{border-color:var(--plum); background:var(--plum); color:var(--on-plum)}
+.chips{display:flex; height:18px; border-radius:4px; overflow:hidden; box-shadow:inset 0 0 0 1px rgba(0,0,0,.15)}
+.chips span{flex:1}
+.chips.photo{background:linear-gradient(90deg,#2b3a67,#4f8fbf,#e8c36a,#d9604c)}
+
+/* Segmented controls */
+.seg{display:flex; flex-wrap:wrap; gap:6px}
+.seg button{min-height:40px; padding:6px 14px; font-size:14px}
+.seg button[aria-pressed="true"]{background:var(--plum); color:var(--on-plum)}
+
+/* Switch */
+.switch{display:flex; align-items:center; gap:12px; font-size:15px; font-weight:700; cursor:pointer; margin-top:14px}
+.switch input{appearance:none; margin:0; width:46px; height:26px; border-radius:999px; background:var(--line); position:relative; cursor:pointer; flex:none}
+.switch input::after{content:""; position:absolute; top:3px; left:3px; width:20px; height:20px; border-radius:50%; background:#fff; transition:transform .15s}
+.switch input:checked{background:var(--plum)}
+.switch input:checked::after{transform:translateX(20px)}
+
+.site-footer{margin-top:32px; padding-top:16px; border-top:2px solid var(--line); color:var(--muted); font-size:15px}
+.site-footer p{margin:0}
+.support{color:var(--plum); font-weight:700; text-underline-offset:3px}
+.support:focus-visible{outline:3px solid var(--lilac); outline-offset:2px; border-radius:4px}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>bitShot</h1>
+    <p>Turns a photo into handheld-console pixel art: tiny palettes, dithering and an old LCD screen. Everything happens on your device, with no AI and no uploads.</p>
+  </header>
+
+  <div class="layout">
+    <section aria-label="Preview">
+      <div class="bezel">
+        <div class="screen" id="screen">
+          <div class="empty" id="empty">Take or choose a photo<small>You can also drop an image file here.</small></div>
+          <canvas id="out" hidden aria-label="Pixel art result"></canvas>
+          <canvas id="orig" aria-label="Original photo"></canvas>
+        </div>
+        <div class="readout">
+          <span class="stat" id="stat">No photo yet</span>
+          <div class="swatches" id="swatches" aria-label="Colors in use"></div>
+        </div>
+      </div>
+      <div class="actions">
+        <label class="filebtn primary">Take photo<input type="file" accept="image/*" capture="environment" id="camIn"></label>
+        <label class="filebtn">Choose photo<input type="file" accept="image/*" id="fileIn"></label>
+        <button id="compare" aria-pressed="false" disabled>Show original</button>
+        <button id="save" disabled>Save PNG</button>
+        <button id="share" hidden disabled>Share</button>
+      </div>
+      <div class="msg" id="msg" role="status"></div>
+    </section>
+
+    <aside class="controls" aria-label="Settings">
+      <fieldset>
+        <legend>Palette</legend>
+        <div class="palettes" id="palettes"></div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Resolution</legend>
+        <div class="seg" id="sizes" role="group" aria-label="Pixels on the short side"></div>
+        <p class="hint">Pixels on the photo's short side. The Game Boy screen was 144 pixels tall.</p>
+      </fieldset>
+
+      <fieldset>
+        <legend>Screen</legend>
+        <div class="label" id="lcdLabel">LCD effect</div>
+        <div class="seg" id="lcd" role="group" aria-labelledby="lcdLabel"></div>
+        <label class="switch"><input type="checkbox" id="autoContrast" checked> Auto contrast</label>
+        <p class="hint">The LCD effect draws the gaps between pixels, like an old handheld screen. Auto contrast stretches dim or hazy photos across the whole palette.</p>
+      </fieldset>
+    </aside>
+  </div>
+
+  <footer class="site-footer">
+    <p>Free to use, no ads, no tracking. If you enjoy it, you can
+      <!-- TODO: replace href="#" with the PayPal donation link -->
+      <a class="support" id="support" href="#" rel="noopener">support the project</a>.
+    </p>
+  </footer>
+</main>
+
+<script src="pipeline.js"></script>
+<script>
+(() => {
+"use strict";
+const $ = id => document.getElementById(id);
+const screen = $("screen");
+const PP = PixelPipeline;
+
+// Settings the user can change, and the ones fixed by design
+const SIZES = [144, 160, 192, 224, 256, 320];
+const LCD_MODES = [{id: "off", name: "Off"}, {id: "light", name: "Light", gap: 0.85}, {id: "dark", name: "Dark", gap: 0.12}];
+const FIXED = {dither: "bayer", ditherAmt: 90, smooth: 0, outline: false, outlineThr: 50};
+const EXPORT_LCD_CELL = 4;          // saved PNG: every pixel is a 4x4 LCD cell
+const EXPORT_MIN_WIDTH = 1024;      // saved PNG without LCD: upscaled to at least this width
+const state = {palette: "gameboy", size: 160, lcd: "light", autoContrast: true};
+
+let src = null;                        // canvas holding the (capped) source photo
+let photoId = 0;                       // bumped per photo so late results for an old photo are dropped
+let srcCache = {key: "", data: null};  // resized source pixels, reused while only colours change
+let art = null;                        // last result: {rgba, width, height, swatches}
+let artSerial = 0;                     // bumped per result so the display knows when to redraw
+let pending = false, busy = false, dirty = false, errorShown = false;
+
+// ---------- Controls ----------
+function segButton(label, pressed, onClick){
+  const b = document.createElement("button");
+  b.type = "button"; b.textContent = label; b.setAttribute("aria-pressed", String(pressed));
+  b.addEventListener("click", onClick);
+  return b;
+}
+function pressOnly(container, button){
+  container.querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", String(b === button)));
+}
+function buildPalettes(){
+  const box = $("palettes");
+  PP.PALETTES.forEach(p => {
+    const chips = document.createElement("span");
+    chips.className = "chips" + (p.colors ? "" : " photo");
+    (p.colors || []).forEach(c => { const s = document.createElement("span"); s.style.background = c; chips.append(s); });
+    const name = document.createElement("span"); name.textContent = p.name;
+    const b = segButton("", p.id === state.palette, () => { state.palette = p.id; pressOnly(box, b); schedule(); });
+    b.dataset.palette = p.id; b.replaceChildren(chips, name);
+    box.append(b);
+  });
+}
+function buildSizes(){
+  const box = $("sizes");
+  SIZES.forEach(s => {
+    const b = segButton(String(s), s === state.size, () => { state.size = s; pressOnly(box, b); schedule(); });
+    b.dataset.size = s; box.append(b);
+  });
+}
+function buildLcd(){
+  const box = $("lcd");
+  LCD_MODES.forEach(m => {
+    const b = segButton(m.name, m.id === state.lcd, () => { state.lcd = m.id; pressOnly(box, b); showArt(); prepareExport(); });
+    b.dataset.lcd = m.id; box.append(b);
+  });
+}
+buildPalettes(); buildSizes(); buildLcd();
+$("autoContrast").addEventListener("change", e => { state.autoContrast = e.target.checked; schedule(); });
+
+// ---------- Loading ----------
+function setMsg(t){ $("msg").textContent = t || ""; errorShown = false; }
+function setError(t){ setMsg(t); errorShown = true; }
+async function decodeImage(file){
+  try {
+    return await createImageBitmap(file, {imageOrientation:"from-image"});
+  } catch (e) {
+    const url = URL.createObjectURL(file);
+    try {
+      return await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  }
+}
+async function loadFile(file){
+  if (!file) return;
+  setMsg("Reading photo…");
+  let img;
+  try {
+    img = await decodeImage(file);
+  } catch (e) {
+    setError("That file couldn't be read as an image. Try a JPEG or PNG.");
+    return;
+  }
+  const sw = img.width, sh = img.height, s = Math.min(1, 1600 / Math.max(sw, sh));
+  src = document.createElement("canvas");
+  src.width = Math.max(1, Math.round(sw * s)); src.height = Math.max(1, Math.round(sh * s));
+  const x = src.getContext("2d"); x.imageSmoothingQuality = "high"; x.drawImage(img, 0, 0, src.width, src.height);
+  photoId++; srcCache = {key: "", data: null};
+  const o = $("orig"); o.width = src.width; o.height = src.height; o.getContext("2d").drawImage(src, 0, 0);
+  $("empty").hidden = true; screen.classList.add("loaded"); $("out").hidden = false; $("compare").disabled = false;
+  setMsg("");
+  schedule();
+}
+$("camIn").addEventListener("change", e => { loadFile(e.target.files[0]); e.target.value = ""; });
+$("fileIn").addEventListener("change", e => { loadFile(e.target.files[0]); e.target.value = ""; });
+screen.addEventListener("dragover", e => { e.preventDefault(); screen.classList.add("drag"); });
+screen.addEventListener("dragleave", () => screen.classList.remove("drag"));
+screen.addEventListener("drop", e => { e.preventDefault(); screen.classList.remove("drag"); loadFile(e.dataTransfer.files[0]); });
+
+$("compare").addEventListener("click", () => {
+  const on = !screen.classList.contains("comparing");
+  screen.classList.toggle("comparing", on);
+  $("compare").setAttribute("aria-pressed", String(on));
+  $("compare").textContent = on ? "Show pixel art" : "Show original";
+});
+
+// ---------- Background processing (Web Worker, main-thread fallback) ----------
+let worker = null, jobSeq = 0;
+const waiting = new Map();
+function runLocal(job){
+  return new Promise((resolve, reject) => setTimeout(() => {
+    try { resolve(PP.process(job.data, job.width, job.height, job.params)); } catch (e) { reject(e); }
+  }, 0));
+}
+function dropWorker(){
+  if (worker) worker.terminate();
+  worker = null;
+  const stuck = [...waiting.values()]; waiting.clear();
+  stuck.forEach(({job, resolve, reject}) => runLocal(job).then(resolve, reject));
+}
+try {
+  worker = new Worker("worker.js");
+  worker.onmessage = e => {
+    const w = waiting.get(e.data.id);
+    if (!w) return;
+    waiting.delete(e.data.id);
+    if (e.data.error) w.reject(new Error(e.data.error)); else w.resolve(e.data.result);
+  };
+  worker.onerror = e => { e.preventDefault(); dropWorker(); };
+} catch (e) {
+  worker = null; // Workers are blocked for file:// pages in some browsers; render on the main thread instead.
+}
+function runJob(job){
+  if (!worker) return runLocal(job);
+  return new Promise((resolve, reject) => { waiting.set(job.id, {job, resolve, reject}); worker.postMessage(job); });
+}
+
+// ---------- Rendering ----------
+// One render in flight at a time; changes made meanwhile trigger one follow-up render with the latest settings.
+function schedule(){
+  if (!src) return;
+  if (busy) { dirty = true; return; }
+  if (pending) return;
+  pending = true;
+  setTimeout(() => requestAnimationFrame(() => { pending = false; render(); }), 30);
+}
+function resizeTo(source, w, h){
+  let cur = source, cw = source.width, ch = source.height;
+  while (cw / 2 >= w && ch / 2 >= h) {
+    const c = document.createElement("canvas");
+    c.width = Math.round(cw / 2); c.height = Math.round(ch / 2);
+    const x = c.getContext("2d"); x.imageSmoothingQuality = "high"; x.drawImage(cur, 0, 0, c.width, c.height);
+    cur = c; cw = c.width; ch = c.height;
+  }
+  const c = document.createElement("canvas"); c.width = w; c.height = h;
+  const x = c.getContext("2d", {willReadFrequently:true}); x.imageSmoothingQuality = "high"; x.drawImage(cur, 0, 0, w, h);
+  return x.getImageData(0, 0, w, h).data;
+}
+function sourcePixels(w, h){
+  const key = w + "x" + h;
+  if (srcCache.key !== key) srcCache = {key, data: resizeTo(src, w, h)};
+  return srcCache.data;
+}
+function pipelineParams(){
+  const p = PP.PALETTES.find(x => x.id === state.palette);
+  return {...FIXED, palette: p.colors ? p.id : "adaptive", colors: 4, boost: p.boost || 0, autoContrast: state.autoContrast};
+}
+function render(){
+  const t0 = performance.now(), forPhoto = photoId, params = pipelineParams();
+  const [W, H] = PP.outputSize(src.width, src.height, state.size);
+  const job = {id: ++jobSeq, data: sourcePixels(W, H), width: W, height: H, params};
+  busy = true; dirty = false;
+  runJob(job)
+    .then(result => { if (forPhoto === photoId) show(result, performance.now() - t0); })
+    .catch(() => setError("Something went wrong while processing this photo. Try other settings or another photo."))
+    .finally(() => { busy = false; if (dirty) schedule(); });
+}
+function show(result, ms){
+  art = result; artSerial++;
+  showArt();
+  $("swatches").replaceChildren(...art.swatches.map(c => { const s = document.createElement("span"); s.style.background = `rgb(${c[0]},${c[1]},${c[2]})`; return s; }));
+  $("stat").textContent = `${art.width} × ${art.height} px, ${art.swatches.length} colors, ${Math.round(ms)} ms`;
+  $("save").disabled = false; $("share").disabled = false;
+  if (errorShown) setMsg("");
+  prepareExport();
+}
+
+// ---------- Display ----------
+// Each art pixel covers a whole number of *device* pixels (the "cell"), so pixels stay square on any
+// screen. The LCD grid is drawn at that cell size (it needs at least 3 device pixels per art pixel).
+// Only when even 1:1 doesn't fit is the image shrunk, smoothly.
+let shown = "";
+function showArt(){
+  if (!art) return;
+  const dpr = window.devicePixelRatio || 1;
+  const availW = (screen.clientWidth - 16) * dpr, availH = Math.max(240, window.innerHeight * 0.8) * dpr;
+  const room = Math.min(availW / art.width, availH / art.height), cell = Math.max(1, Math.floor(room));
+  const mode = LCD_MODES.find(m => m.id === state.lcd), useLcd = mode.gap !== undefined && cell >= 3;
+  const key = [artSerial, useLcd ? cell : 0, state.lcd].join(";");
+  const out = $("out");
+  if (key !== shown) {
+    const img = useLcd ? PP.lcd(art.rgba, art.width, art.height, cell, mode.gap) : {rgba: new Uint8ClampedArray(art.rgba), width: art.width, height: art.height};
+    out.width = img.width; out.height = img.height;
+    out.getContext("2d").putImageData(new ImageData(img.rgba, img.width, img.height), 0, 0);
+    shown = key;
+  }
+  const scale = room >= 1 ? cell : room, cw = art.width * scale / dpr + "px", ch = art.height * scale / dpr + "px";
+  out.classList.toggle("shrunk", room < 1);
+  out.style.width = cw; out.style.height = ch;
+  $("orig").style.width = cw; $("orig").style.height = ch;
+}
+new ResizeObserver(showArt).observe(screen);
+window.addEventListener("resize", showArt);
+
+// ---------- Save and share ----------
+// The PNG is encoded shortly after each change so Share can open the share sheet
+// straight from the tap (Safari refuses navigator.share after a slow await).
+let exportJob = null, exportTimer = 0;
+function prepareExport(){
+  exportJob = null; clearTimeout(exportTimer);
+  exportTimer = setTimeout(makeExport, 400);
+}
+function exportCanvas(){
+  const mode = LCD_MODES.find(m => m.id === state.lcd), c = document.createElement("canvas");
+  if (mode.gap !== undefined) {
+    const img = PP.lcd(art.rgba, art.width, art.height, EXPORT_LCD_CELL, mode.gap);
+    c.width = img.width; c.height = img.height;
+    c.getContext("2d").putImageData(new ImageData(img.rgba, img.width, img.height), 0, 0);
+    return c;
+  }
+  const base = document.createElement("canvas"); base.width = art.width; base.height = art.height;
+  base.getContext("2d").putImageData(new ImageData(new Uint8ClampedArray(art.rgba), art.width, art.height), 0, 0);
+  const s = Math.max(1, Math.ceil(EXPORT_MIN_WIDTH / art.width));
+  c.width = art.width * s; c.height = art.height * s;
+  const x = c.getContext("2d"); x.imageSmoothingEnabled = false; x.drawImage(base, 0, 0, c.width, c.height);
+  return c;
+}
+function makeExport(){
+  if (exportJob) return exportJob;
+  const c = exportCanvas(), job = {w: c.width, h: c.height, ready: null};
+  job.blob = new Promise((res, rej) => c.toBlob(b => b ? res(b) : rej(new Error("PNG encoding failed")), "image/png"))
+    .then(b => { job.ready = b; return b; });
+  exportJob = job;
+  return job;
+}
+function fileName(){ return "bitshot-" + new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-") + ".png"; }
+
+$("save").addEventListener("click", async () => {
+  if (!art) return;
+  const job = makeExport();
+  try {
+    const url = URL.createObjectURL(await job.blob), a = document.createElement("a");
+    a.href = url; a.download = fileName(); document.body.append(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
+    setMsg(`Saving a ${job.w} × ${job.h} px PNG.`);
+  } catch (e) {
+    setError("Couldn't create the PNG. Please try again.");
+  }
+});
+
+const canShareFiles = (() => {
+  try { return !!(navigator.canShare && navigator.canShare({files: [new File([""], "x.png", {type: "image/png"})]})); }
+  catch (e) { return false; }
+})();
+$("share").hidden = !canShareFiles;
+$("share").addEventListener("click", async () => {
+  if (!art) return;
+  const job = makeExport();
+  try {
+    const blob = job.ready || await job.blob;
+    await navigator.share({files: [new File([blob], fileName(), {type: "image/png"})]});
+  } catch (e) {
+    if (e && e.name === "AbortError") return; // share sheet closed by the user
+    setError(e && e.name === "NotAllowedError" ? "Tap Share again to open the share sheet." : "Sharing isn't available here. Use Save PNG instead.");
+  }
+});
+})();
+</script>
+</body>
+</html>

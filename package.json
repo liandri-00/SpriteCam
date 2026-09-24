@@ -1,0 +1,8 @@
+{
+  "name": "bitshot",
+  "private": true,
+  "description": "Turns photos into handheld-console pixel art, entirely in the browser.",
+  "scripts": {
+    "test": "node --test \"tests/*.test.js\""
+  }
+}
