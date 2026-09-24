@@ -98,7 +98,7 @@ async function main(){
   ws.onmessage = m => { const d = JSON.parse(m.data); if (d.id && pend.has(d.id)) { pend.get(d.id)(d); pend.delete(d.id); } };
   const send = (method, params = {}) => new Promise(r => { const i = ++id; pend.set(i, r); ws.send(JSON.stringify({id: i, method, params})); });
   await send("Emulation.setDeviceMetricsOverride", {width: 1280, height: 900, deviceScaleFactor: 1, mobile: false});
-  await send("Page.navigate", {url: "http://127.0.0.1:8766/pixel-camera.html"}); await sleep(1500);
+  await send("Page.navigate", {url: "http://127.0.0.1:8766/index.html"}); await sleep(1500);
   const r = await send("Runtime.evaluate", {expression: PAGE_SCRIPT, awaitPromise: true, returnByValue: true});
   if (r.result.exceptionDetails) throw new Error(JSON.stringify(r.result.exceptionDetails));
   const v = r.result.result.value;
