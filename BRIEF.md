@@ -24,7 +24,7 @@ save or share it as a PNG.
   in a Web Worker (`worker.js`), on the main thread as a fallback (for example
   when the page is opened from disk), and under Node for tests.
 - `tests/`: unit tests for the pipeline (`npm test`).
-- `tools/`: scripts that regenerate the icons and the README images.
+- `tools/`: scripts that regenerate the icons, the README images and the link-preview card (`og-image.html`).
 - `fonts/`: self-hosted fonts, so the page makes no third-party requests.
 - `icons/`, `media/`: app icons and README images.
 

@@ -79,7 +79,7 @@ Run the pipeline tests with Node 22 or newer:
 npm test
 ```
 
-`tools/` has the scripts that regenerate the app icons and the README images.
+`tools/` has the scripts that regenerate the app icons, the README images and the link-preview card.
 
 ## License
 

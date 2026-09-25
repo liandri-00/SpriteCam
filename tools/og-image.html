@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<!-- Link-preview card (media/og-card.png, 1200 x 630) shown when the site is shared on social apps and chats.
+     It runs the app's own pipeline on the README photo. To regenerate, serve the repo root, then:
+     chrome --headless=new --window-size=1200,630 --hide-scrollbars --virtual-time-budget=5000
+            --screenshot=media/og-card.png http://localhost:<port>/tools/og-image.html -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../site.css">
+<style>
+:root{--shell:#1d1a26; --ink:#ebe8f3; --muted:#a8a1bf; --plum:#9a8ae0; --line:#3d3850}
+html,body{margin:0; width:1200px; height:630px; overflow:hidden; background:var(--shell)}
+.card{display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:36px; height:100%; padding:0 48px}
+h1{font-size:52px; margin:0 0 14px}
+.tagline{font-family:"Silkscreen",monospace; font-size:15px; letter-spacing:.03em; color:var(--plum); margin:0 0 26px; text-transform:uppercase}
+.tagline::before{content:"> "}
+.tagline::after{content:"_"}
+p.lede{font-size:25px; line-height:1.35; color:var(--ink); margin:0 0 30px; max-width:14em}
+.url{font-family:"Silkscreen",monospace; font-size:16px; color:var(--muted)}
+.tiles{display:flex; gap:14px; align-items:center}
+.tile{background:#0c0b12; padding:12px; border-radius:10px 10px 10px 30px; box-shadow:0 6px 0 rgba(0,0,0,.35)}
+.tile canvas{display:block; width:252px; height:auto; border-radius:3px}
+.tile.art canvas{image-rendering:pixelated}
+.arrow{font-family:"Silkscreen",monospace; font-size:34px; color:var(--plum)}
+</style>
+</head>
+<body>
+<div class="card">
+  <div>
+    <h1>SpriteCam</h1>
+    <p class="tagline">wake up. the palette has four colors.</p>
+    <p class="lede">Turn photos into handheld-console pixel art. Right in your browser, no uploads.</p>
+    <div class="url">liandri-00.github.io/SpriteCam</div>
+  </div>
+  <div class="tiles">
+    <div class="tile"><canvas id="photo"></canvas></div>
+    <div class="arrow" aria-hidden="true">→</div>
+    <div class="tile art"><canvas id="art"></canvas></div>
+  </div>
+</div>
+<script src="../pipeline.js"></script>
+<script>
+(async () => {
+  const PP = PixelPipeline;
+  // The photo inside media/before.jpg, without its frame and caption
+  const CROP = {x: 18, y: 18, w: 1292, h: 1764}, SHORT = 126, SHOW_W = 252; // art shown at exactly 2x
+  const img = new Image(); img.src = "../media/before.jpg"; await img.decode();
+  const photo = document.getElementById("photo");
+  photo.width = SHOW_W * 2; photo.height = Math.round(SHOW_W * 2 * CROP.h / CROP.w);
+  const px = photo.getContext("2d"); px.imageSmoothingQuality = "high";
+  px.drawImage(img, CROP.x, CROP.y, CROP.w, CROP.h, 0, 0, photo.width, photo.height);
+  // Same steps as the app: halve down to the art size, then the Game Boy palette
+  let cur = photo;
+  const [W, H] = PP.outputSize(CROP.w, CROP.h, SHORT);
+  while (cur.width / 2 >= W) {
+    const c = document.createElement("canvas"); c.width = Math.round(cur.width / 2); c.height = Math.round(cur.height / 2);
+    const x = c.getContext("2d"); x.imageSmoothingQuality = "high"; x.drawImage(cur, 0, 0, c.width, c.height); cur = c;
+  }
+  const small = document.createElement("canvas"); small.width = W; small.height = H;
+  const sx = small.getContext("2d"); sx.imageSmoothingQuality = "high"; sx.drawImage(cur, 0, 0, W, H);
+  const r = PP.process(sx.getImageData(0, 0, W, H).data, W, H, {palette: "gameboy", colors: 4, boost: 0, ditherAmt: 90, autoContrast: true});
+  const art = document.getElementById("art"); art.width = W; art.height = H;
+  art.getContext("2d").putImageData(new ImageData(r.rgba, W, H), 0, 0);
+})();
+</script>
+</body>
+</html>
