@@ -69,6 +69,14 @@ npm test
 
 `tools/` has the scripts that regenerate the app icons and the README images.
 
+## License
+
+SpriteCam is free software under the [GNU General Public License v3.0 or later](LICENSE).
+You can use, study, change and share it; if you distribute a modified version,
+including by hosting it, it must stay under the GPL with its source available.
+
+The fonts in [`fonts/`](fonts/) keep their own SIL Open Font License.
+
 ## Credits
 
 - Fonts: [Silkscreen](https://fonts.google.com/specimen/Silkscreen) and

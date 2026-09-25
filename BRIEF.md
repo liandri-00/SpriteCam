@@ -110,14 +110,14 @@ preview in plain JavaScript looks feasible at 160 px.
 
 Done: the app, save/share, self-hosted fonts, icons, README images, unit tests,
 git repository, landing section (how to use it, privacy promise), web app
-manifest, privacy note (`privacy.html`), README for GitHub visitors. Styles
+manifest, privacy note (`privacy.html`), README for GitHub visitors, GPL-3.0
+licence (`LICENSE`, "or later"). Styles
 shared by both pages live in `site.css`.
 
 Still to do:
 
 - Support link: PayPal donation link to be provided; the placeholder is marked
   with a TODO in `index.html`.
-- Choose a licence before the repo goes public.
 - Deploy to GitHub Pages from a public repo (`liandri-00/SpriteCam`, served at
   https://liandri-00.github.io/SpriteCam/). The README, footer and privacy note
   already link there.
