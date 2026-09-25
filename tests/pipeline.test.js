@@ -64,6 +64,26 @@ test("photo palette picks its colours from the photo", () => {
   assert.ok(r.swatches.length >= 2 && r.swatches.length <= 4, `${r.swatches.length} colours`);
 });
 
+test("photo palette warm-started from the previous frame's colours stays close to them", () => {
+  const W = 64, H = 48, frame = gradient(W, H), p = params({palette: "photo", colors: 4, boost: 20});
+  const cold = P.process(frame, W, H, p);
+  const warm = P.process(frame, W, H, {...p, seed: cold.swatches});
+  assert.equal(warm.swatches.length, cold.swatches.length);
+  warm.swatches.forEach((c, i) => c.forEach((v, ch) =>
+    assert.ok(Math.abs(v - cold.swatches[i][ch]) <= 8, `swatch ${i} channel ${ch}: ${v} vs ${cold.swatches[i][ch]}`)));
+});
+
+test("warm start is deterministic and ignored for fixed palettes or a seed of the wrong size", () => {
+  const W = 48, H = 32, frame = gradient(W, H), p = params({palette: "photo", colors: 4});
+  const seed = [[20, 30, 40], [90, 80, 70], [160, 150, 120], [230, 220, 200]];
+  assert.deepEqual(P.process(frame, W, H, {...p, seed}).swatches, P.process(frame, W, H, {...p, seed}).swatches);
+  // A seed bunched in the shadows is refined by one step only, so it can't reach the cold result
+  const dark = [[0, 0, 0], [5, 5, 5], [10, 10, 10], [15, 15, 15]];
+  assert.notDeepEqual(P.process(frame, W, H, {...p, seed: dark}).swatches, P.process(frame, W, H, p).swatches);
+  assert.deepEqual(P.process(frame, W, H, {...p, seed: seed.slice(0, 2)}).swatches, P.process(frame, W, H, p).swatches);
+  assert.deepEqual(P.process(frame, W, H, params({seed})).rgba, P.process(frame, W, H, params()).rgba);
+});
+
 test("lcd draws each pixel as a (cell - gap) square plus a darker gap line", () => {
   const rgba = new Uint8ClampedArray([200, 100, 40, 255, 10, 20, 30, 255]); // 2 x 1
   const light = P.lcd(rgba, 2, 1, 4, 0.85);

@@ -99,13 +99,19 @@ function fromLab(L, A, B){
 }
 function mulberry32(a){ return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 
-// k-means (k-means++ seeding, fixed seed so results don't flicker) in Oklab
-function kmeansPalette(d, n, k){
-  const rand = mulberry32(12345);
-  const step = Math.max(1, Math.floor(n / 6000)), S = [];
+// k-means in Oklab. Cold start: k-means++ seeding with a fixed seed so results don't flicker, 12 rounds
+// over ~6000 sampled pixels. Warm start (live camera): `seed` holds the previous frame's k colours, which
+// get one round over ~2000 pixels. That is much cheaper, and the palette moves smoothly between frames.
+function sampleLab(d, n, target){
+  const step = Math.max(1, Math.floor(n / target)), S = [];
   for (let i = 0; i < n; i += step) { const p = i * 4; S.push(toLab(d[p], d[p+1], d[p+2])); }
-  const m = S.length, C = [S[Math.floor(rand() * m)].slice()], D = new Float64Array(m).fill(Infinity);
+  return S;
+}
+function kmeansPalette(d, n, k, seed){
   const dist = (a, b) => (a[0]-b[0])**2 + (a[1]-b[1])**2 + (a[2]-b[2])**2;
+  if (seed && seed.length === k) return lloyd(sampleLab(d, n, 2000), seed.map(c => toLab(c[0], c[1], c[2])), 1, dist);
+  const rand = mulberry32(12345), S = sampleLab(d, n, 6000);
+  const m = S.length, C = [S[Math.floor(rand() * m)].slice()], D = new Float64Array(m).fill(Infinity);
   while (C.length < k) {
     const last = C[C.length - 1]; let tot = 0;
     for (let i = 0; i < m; i++) { const dd = dist(S[i], last); if (dd < D[i]) D[i] = dd; tot += D[i]; }
@@ -114,13 +120,17 @@ function kmeansPalette(d, n, k){
     for (; j < m - 1; j++) { r -= D[j]; if (r <= 0) break; }
     C.push(S[j].slice());
   }
-  const K = C.length, asg = new Int32Array(m);
-  for (let it = 0; it < 12; it++) {
+  return lloyd(S, C, 12, dist);
+}
+// Lloyd rounds: assign every sample to its nearest centre, move each centre to its samples' mean.
+function lloyd(S, C, rounds, dist){
+  const K = C.length, m = S.length;
+  for (let it = 0; it < rounds; it++) {
     const sum = new Float64Array(K * 3), cnt = new Int32Array(K);
     for (let i = 0; i < m; i++) {
       let bi = 0, bd = Infinity;
       for (let c = 0; c < K; c++) { const dd = dist(S[i], C[c]); if (dd < bd) { bd = dd; bi = c; } }
-      asg[i] = bi; cnt[bi]++; sum[bi*3] += S[i][0]; sum[bi*3+1] += S[i][1]; sum[bi*3+2] += S[i][2];
+      cnt[bi]++; sum[bi*3] += S[i][0]; sum[bi*3+1] += S[i][1]; sum[bi*3+2] += S[i][2];
     }
     for (let c = 0; c < K; c++) if (cnt[c]) C[c] = [sum[c*3]/cnt[c], sum[c*3+1]/cnt[c], sum[c*3+2]/cnt[c]];
   }
@@ -132,7 +142,7 @@ const hexToRgb = h => [parseInt(h.slice(1,3),16), parseInt(h.slice(3,5),16), par
 function buildPalette(d, n, params){
   if (params.palette in FIXED_PALETTES) return FIXED_PALETTES[params.palette].map(hexToRgb);
   const seen = new Set();
-  return kmeansPalette(d, n, params.colors).filter(c => { const k = c.join(); if (seen.has(k)) return false; seen.add(k); return true; });
+  return kmeansPalette(d, n, params.colors, params.seed).filter(c => { const k = c.join(); if (seen.has(k)) return false; seen.add(k); return true; });
 }
 // Nearest palette entry in Oklab, memoized on a 6-bit-per-channel key.
 function makeNearest(palLab){
@@ -167,7 +177,8 @@ function compose(idx, pal){
 
 // ---------- Main entry ----------
 // `data` is RGBA at W x H. It is not modified.
-// params: {palette: id from PALETTES, colors: count for "photo", boost: saturation %, ditherAmt: 0-100, autoContrast: bool}
+// params: {palette: id from PALETTES, colors: count for "photo", boost: saturation %, ditherAmt: 0-100, autoContrast: bool,
+//          seed: optional previous-frame colours for "photo" (warm start, see kmeansPalette)}
 // Returns the W x H result as RGBA plus the palette sorted dark to light.
 function process(data, W, H, params){
   if (data.length !== W * H * 4) throw new Error("Input size does not match output size");

@@ -17,6 +17,7 @@
 <style>
 .layout{display:grid; gap:20px}
 @media (min-width:880px){ .layout{grid-template-columns:minmax(0,1.65fr) minmax(300px,1fr); align-items:start} }
+.layout > *{min-width:0} /* let wide content (the filmstrip) scroll instead of stretching the column */
 
 .bezel{
   background:var(--bezel); border-radius:22px 22px 22px 60px; padding:18px 18px 22px;
@@ -49,6 +50,32 @@ button,.filebtn{
 button:disabled{opacity:.45; cursor:not-allowed}
 button:focus-visible,.filebtn:focus-within,input:focus-visible{outline:3px solid var(--lilac); outline-offset:2px}
 .filebtn input{position:absolute; width:1px; height:1px; opacity:0; pointer-events:none}
+/* Live camera: the raw feed stays in the DOM but out of sight (iOS stops hidden videos), the
+   pixel-art result is what you see. */
+.feed{position:absolute; width:1px; height:1px; opacity:0; pointer-events:none}
+.badge{
+  position:absolute; top:14px; left:14px; padding:3px 8px 3px 20px; background:rgba(15,13,23,.75); color:#fff;
+  font-family:"Silkscreen",ui-monospace,monospace; font-size:12px; letter-spacing:.05em; text-transform:uppercase;
+}
+.badge::before{content:""; position:absolute; left:7px; top:50%; width:7px; height:7px; margin-top:-3.5px; background:#ff4f4f; animation:blink 1.1s steps(1) infinite}
+.countdown{
+  position:absolute; inset:0; display:grid; place-items:center; pointer-events:none; background:rgba(15,13,23,.6);
+  font-family:"Silkscreen",ui-monospace,monospace; font-weight:400; font-size:clamp(56px,18vw,120px); line-height:1; color:#fff; /* the bold 4 fills in */
+  text-shadow:5px 5px 0 var(--plum);
+}
+.flash{position:absolute; inset:0; background:#fff; opacity:0; pointer-events:none}
+.flash.on{animation:flash .35s ease-out}
+@keyframes flash{from{opacity:1} to{opacity:0}}
+.shutter{min-width:120px; justify-content:center}
+.filmstrip{display:flex; gap:8px; margin-top:14px; overflow-x:auto; padding:4px 2px}
+.filmstrip button{padding:0; min-height:0; border-radius:4px; border:3px solid transparent; background:none; line-height:0; flex:none}
+.filmstrip button[aria-pressed="true"]{border-color:var(--lilac)}
+.filmstrip canvas{display:block; image-rendering:pixelated; image-rendering:crisp-edges}
+@media (prefers-reduced-motion: reduce){
+  .flash.on{animation-name:flash-soft}
+  .badge::before{animation:none}
+}
+@keyframes flash-soft{from{opacity:.35} to{opacity:0}}
 .msg{margin-top:10px; font-size:14px; color:var(--muted); min-height:1.4em}
 
 .controls{background:var(--panel); border-radius:16px; padding:6px 18px 16px}
@@ -140,18 +167,30 @@ header .tagline{font-family:"Silkscreen",ui-monospace,monospace; font-size:clamp
           <div class="empty" id="empty">Take or choose a photo<small>You can also drop an image file here.</small></div>
           <canvas id="out" hidden aria-label="Pixel art result"></canvas>
           <canvas id="orig" aria-label="Original photo"></canvas>
+          <video id="feed" class="feed" playsinline muted aria-hidden="true"></video>
+          <span class="badge" id="badge" hidden>Live</span>
+          <div class="countdown" id="countdown" hidden aria-live="assertive"></div>
+          <div class="flash" id="flash" aria-hidden="true"></div>
         </div>
         <div class="readout">
           <span class="stat" id="stat">No photo yet</span>
           <div class="swatches" id="swatches" aria-label="Colors in use"></div>
         </div>
+        <div class="filmstrip" id="filmstrip" role="group" aria-label="Burst shots" hidden></div>
       </div>
-      <div class="actions">
-        <label class="filebtn primary">Take photo<input type="file" accept="image/*" capture="environment" id="camIn"></label>
+      <div class="actions" id="stillActions">
+        <button class="primary" id="takePhoto" type="button">Take photo</button>
+        <input type="file" accept="image/*" capture="environment" id="camIn" hidden>
         <label class="filebtn">Choose photo<input type="file" accept="image/*" id="fileIn"></label>
         <button id="compare" aria-pressed="false" disabled>Show original</button>
         <button id="save" disabled>Save PNG</button>
         <button id="share" hidden disabled>Share</button>
+      </div>
+      <div class="actions" id="liveActions" hidden>
+        <button class="primary shutter" id="shoot" type="button">Shoot</button>
+        <button id="burst" type="button">Burst ×5</button>
+        <button id="flip" type="button" hidden>Flip camera</button>
+        <button id="closeCam" type="button">Close camera</button>
       </div>
       <div class="msg" id="msg" role="status"></div>
     </section>
@@ -182,7 +221,7 @@ header .tagline{font-family:"Silkscreen",ui-monospace,monospace; font-size:clamp
     <section aria-labelledby="how-heading">
       <h2 id="how-heading">How to use it</h2>
       <ol class="steps">
-        <li><strong>Take or choose a photo</strong><p>Use your camera, pick one from your gallery, or drop a file on the screen.</p></li>
+        <li><strong>Take or choose a photo</strong><p>The camera shows the pixel art live. Burst takes 5 shots after a countdown. You can also pick a photo or drop a file on the screen.</p></li>
         <li><strong>Pick a palette</strong><p>Each palette is a different old screen. Raise the resolution if faces look too blocky.</p></li>
         <li><strong>Save or share</strong><p>You get a PNG with crisp, square pixels, ready to post.</p></li>
       </ol>
@@ -202,286 +241,7 @@ header .tagline{font-family:"Silkscreen",ui-monospace,monospace; font-size:clamp
 </main>
 
 <script src="pipeline.js"></script>
-<script>
-(() => {
-"use strict";
-const $ = id => document.getElementById(id);
-const screen = $("screen");
-const PP = PixelPipeline;
-
-// Settings the user can change, and the ones fixed by design
-const SIZES = [144, 160, 192, 224, 256, 320];
-const LCD_MODES = [{id: "off", name: "Off"}, {id: "light", name: "Light", gap: 0.85}, {id: "dark", name: "Dark", gap: 0.12}];
-const DITHER_AMOUNT = 90;           // ordered dithering strength, fixed by design
-const EXPORT_LCD_CELL = 4;          // saved PNG: every pixel is a 4x4 LCD cell
-const EXPORT_MIN_WIDTH = 1024;      // saved PNG without LCD: upscaled to at least this width
-const state = {palette: "gameboy", size: 160, lcd: "light", autoContrast: true};
-
-let src = null;                        // canvas holding the (capped) source photo
-let photoId = 0;                       // bumped per photo so late results for an old photo are dropped
-let srcCache = {key: "", data: null};  // resized source pixels, reused while only colours change
-let art = null;                        // last result: {rgba, width, height, swatches}
-let artSerial = 0;                     // bumped per result so the display knows when to redraw
-let pending = false, busy = false, dirty = false, errorShown = false;
-
-// ---------- Controls ----------
-function segButton(label, pressed, onClick){
-  const b = document.createElement("button");
-  b.type = "button"; b.textContent = label; b.setAttribute("aria-pressed", String(pressed));
-  b.addEventListener("click", onClick);
-  return b;
-}
-function pressOnly(container, button){
-  container.querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", String(b === button)));
-}
-function buildPalettes(){
-  const box = $("palettes");
-  PP.PALETTES.forEach(p => {
-    const chips = document.createElement("span");
-    chips.className = "chips" + (p.colors ? "" : " photo");
-    (p.colors || []).forEach(c => { const s = document.createElement("span"); s.style.background = c; chips.append(s); });
-    const name = document.createElement("span"); name.textContent = p.name;
-    const b = segButton("", p.id === state.palette, () => { state.palette = p.id; pressOnly(box, b); schedule(); });
-    b.dataset.palette = p.id; b.replaceChildren(chips, name);
-    box.append(b);
-  });
-}
-function buildSizes(){
-  const box = $("sizes");
-  SIZES.forEach(s => {
-    const b = segButton(String(s), s === state.size, () => { state.size = s; pressOnly(box, b); schedule(); });
-    b.dataset.size = s; box.append(b);
-  });
-}
-function buildLcd(){
-  const box = $("lcd");
-  LCD_MODES.forEach(m => {
-    const b = segButton(m.name, m.id === state.lcd, () => { state.lcd = m.id; pressOnly(box, b); showArt(); prepareExport(); });
-    b.dataset.lcd = m.id; box.append(b);
-  });
-}
-buildPalettes(); buildSizes(); buildLcd();
-$("autoContrast").addEventListener("change", e => { state.autoContrast = e.target.checked; schedule(); });
-
-// ---------- Loading ----------
-function setMsg(t){ $("msg").textContent = t || ""; errorShown = false; }
-function setError(t){ setMsg(t); errorShown = true; }
-async function decodeImage(file){
-  try {
-    return await createImageBitmap(file, {imageOrientation:"from-image"});
-  } catch (e) {
-    const url = URL.createObjectURL(file);
-    try {
-      return await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
-    } finally {
-      URL.revokeObjectURL(url);
-    }
-  }
-}
-async function loadFile(file){
-  if (!file) return;
-  setMsg("Reading photo…");
-  let img;
-  try {
-    img = await decodeImage(file);
-  } catch (e) {
-    setError("That file couldn't be read as an image. Try a JPEG or PNG.");
-    return;
-  }
-  const sw = img.width, sh = img.height, s = Math.min(1, 1600 / Math.max(sw, sh));
-  src = document.createElement("canvas");
-  src.width = Math.max(1, Math.round(sw * s)); src.height = Math.max(1, Math.round(sh * s));
-  const x = src.getContext("2d"); x.imageSmoothingQuality = "high"; x.drawImage(img, 0, 0, src.width, src.height);
-  photoId++; srcCache = {key: "", data: null};
-  const o = $("orig"); o.width = src.width; o.height = src.height; o.getContext("2d").drawImage(src, 0, 0);
-  $("empty").hidden = true; screen.classList.add("loaded"); $("out").hidden = false; $("compare").disabled = false;
-  setMsg("");
-  schedule();
-}
-$("camIn").addEventListener("change", e => { loadFile(e.target.files[0]); e.target.value = ""; });
-$("fileIn").addEventListener("change", e => { loadFile(e.target.files[0]); e.target.value = ""; });
-screen.addEventListener("dragover", e => { e.preventDefault(); screen.classList.add("drag"); });
-screen.addEventListener("dragleave", () => screen.classList.remove("drag"));
-screen.addEventListener("drop", e => { e.preventDefault(); screen.classList.remove("drag"); loadFile(e.dataTransfer.files[0]); });
-
-$("compare").addEventListener("click", () => {
-  const on = !screen.classList.contains("comparing");
-  screen.classList.toggle("comparing", on);
-  $("compare").setAttribute("aria-pressed", String(on));
-  $("compare").textContent = on ? "Show pixel art" : "Show original";
-});
-
-// ---------- Background processing (Web Worker, main-thread fallback) ----------
-let worker = null, jobSeq = 0;
-const waiting = new Map();
-function runLocal(job){
-  return new Promise((resolve, reject) => setTimeout(() => {
-    try { resolve(PP.process(job.data, job.width, job.height, job.params)); } catch (e) { reject(e); }
-  }, 0));
-}
-function dropWorker(){
-  if (worker) worker.terminate();
-  worker = null;
-  const stuck = [...waiting.values()]; waiting.clear();
-  stuck.forEach(({job, resolve, reject}) => runLocal(job).then(resolve, reject));
-}
-try {
-  worker = new Worker("worker.js");
-  worker.onmessage = e => {
-    const w = waiting.get(e.data.id);
-    if (!w) return;
-    waiting.delete(e.data.id);
-    if (e.data.error) w.reject(new Error(e.data.error)); else w.resolve(e.data.result);
-  };
-  worker.onerror = e => { e.preventDefault(); dropWorker(); };
-} catch (e) {
-  worker = null; // Workers are blocked for file:// pages in some browsers; render on the main thread instead.
-}
-function runJob(job){
-  if (!worker) return runLocal(job);
-  return new Promise((resolve, reject) => { waiting.set(job.id, {job, resolve, reject}); worker.postMessage(job); });
-}
-
-// ---------- Rendering ----------
-// One render in flight at a time; changes made meanwhile trigger one follow-up render with the latest settings.
-function schedule(){
-  if (!src) return;
-  if (busy) { dirty = true; return; }
-  if (pending) return;
-  pending = true;
-  setTimeout(() => requestAnimationFrame(() => { pending = false; render(); }), 30);
-}
-function resizeTo(source, w, h){
-  let cur = source, cw = source.width, ch = source.height;
-  while (cw / 2 >= w && ch / 2 >= h) {
-    const c = document.createElement("canvas");
-    c.width = Math.round(cw / 2); c.height = Math.round(ch / 2);
-    const x = c.getContext("2d"); x.imageSmoothingQuality = "high"; x.drawImage(cur, 0, 0, c.width, c.height);
-    cur = c; cw = c.width; ch = c.height;
-  }
-  const c = document.createElement("canvas"); c.width = w; c.height = h;
-  const x = c.getContext("2d", {willReadFrequently:true}); x.imageSmoothingQuality = "high"; x.drawImage(cur, 0, 0, w, h);
-  return x.getImageData(0, 0, w, h).data;
-}
-function sourcePixels(w, h){
-  const key = w + "x" + h;
-  if (srcCache.key !== key) srcCache = {key, data: resizeTo(src, w, h)};
-  return srcCache.data;
-}
-function pipelineParams(){
-  const p = PP.PALETTES.find(x => x.id === state.palette);
-  return {palette: p.id, colors: 4, boost: p.boost || 0, ditherAmt: DITHER_AMOUNT, autoContrast: state.autoContrast};
-}
-function render(){
-  const t0 = performance.now(), forPhoto = photoId, params = pipelineParams();
-  const [W, H] = PP.outputSize(src.width, src.height, state.size);
-  const job = {id: ++jobSeq, data: sourcePixels(W, H), width: W, height: H, params};
-  busy = true; dirty = false;
-  runJob(job)
-    .then(result => { if (forPhoto === photoId) show(result, performance.now() - t0); })
-    .catch(() => setError("Something went wrong while processing this photo. Try other settings or another photo."))
-    .finally(() => { busy = false; if (dirty) schedule(); });
-}
-function show(result, ms){
-  art = result; artSerial++;
-  showArt();
-  $("swatches").replaceChildren(...art.swatches.map(c => { const s = document.createElement("span"); s.style.background = `rgb(${c[0]},${c[1]},${c[2]})`; return s; }));
-  $("stat").textContent = `${art.width} × ${art.height} px, ${art.swatches.length} colors, ${Math.round(ms)} ms`;
-  $("save").disabled = false; $("share").disabled = false;
-  if (errorShown) setMsg("");
-  prepareExport();
-}
-
-// ---------- Display ----------
-// Each art pixel covers a whole number of *device* pixels (the "cell"), so pixels stay square on any
-// screen. The LCD grid is drawn at that cell size (it needs at least 3 device pixels per art pixel).
-// Only when even 1:1 doesn't fit is the image shrunk, smoothly.
-let shown = "";
-function showArt(){
-  if (!art) return;
-  const dpr = window.devicePixelRatio || 1;
-  const availW = (screen.clientWidth - 16) * dpr, availH = Math.max(240, window.innerHeight * 0.8) * dpr;
-  const room = Math.min(availW / art.width, availH / art.height), cell = Math.max(1, Math.floor(room));
-  const mode = LCD_MODES.find(m => m.id === state.lcd), useLcd = mode.gap !== undefined && cell >= 3;
-  const key = [artSerial, useLcd ? cell : 0, state.lcd].join(";");
-  const out = $("out");
-  if (key !== shown) {
-    const img = useLcd ? PP.lcd(art.rgba, art.width, art.height, cell, mode.gap) : {rgba: new Uint8ClampedArray(art.rgba), width: art.width, height: art.height};
-    out.width = img.width; out.height = img.height;
-    out.getContext("2d").putImageData(new ImageData(img.rgba, img.width, img.height), 0, 0);
-    shown = key;
-  }
-  const scale = room >= 1 ? cell : room, cw = art.width * scale / dpr + "px", ch = art.height * scale / dpr + "px";
-  out.classList.toggle("shrunk", room < 1);
-  out.style.width = cw; out.style.height = ch;
-  $("orig").style.width = cw; $("orig").style.height = ch;
-}
-new ResizeObserver(showArt).observe(screen);
-window.addEventListener("resize", showArt);
-
-// ---------- Save and share ----------
-// The PNG is encoded shortly after each change so Share can open the share sheet
-// straight from the tap (Safari refuses navigator.share after a slow await).
-let exportJob = null, exportTimer = 0;
-function prepareExport(){
-  exportJob = null; clearTimeout(exportTimer);
-  exportTimer = setTimeout(makeExport, 400);
-}
-function exportCanvas(){
-  const mode = LCD_MODES.find(m => m.id === state.lcd), c = document.createElement("canvas");
-  if (mode.gap !== undefined) {
-    const img = PP.lcd(art.rgba, art.width, art.height, EXPORT_LCD_CELL, mode.gap);
-    c.width = img.width; c.height = img.height;
-    c.getContext("2d").putImageData(new ImageData(img.rgba, img.width, img.height), 0, 0);
-    return c;
-  }
-  const base = document.createElement("canvas"); base.width = art.width; base.height = art.height;
-  base.getContext("2d").putImageData(new ImageData(new Uint8ClampedArray(art.rgba), art.width, art.height), 0, 0);
-  const s = Math.max(1, Math.ceil(EXPORT_MIN_WIDTH / art.width));
-  c.width = art.width * s; c.height = art.height * s;
-  const x = c.getContext("2d"); x.imageSmoothingEnabled = false; x.drawImage(base, 0, 0, c.width, c.height);
-  return c;
-}
-function makeExport(){
-  if (exportJob) return exportJob;
-  const c = exportCanvas(), job = {w: c.width, h: c.height, ready: null};
-  job.blob = new Promise((res, rej) => c.toBlob(b => b ? res(b) : rej(new Error("PNG encoding failed")), "image/png"))
-    .then(b => { job.ready = b; return b; });
-  exportJob = job;
-  return job;
-}
-function fileName(){ return "spritecam-" + new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-") + ".png"; }
-
-$("save").addEventListener("click", async () => {
-  if (!art) return;
-  const job = makeExport();
-  try {
-    const url = URL.createObjectURL(await job.blob), a = document.createElement("a");
-    a.href = url; a.download = fileName(); document.body.append(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 30000);
-    setMsg(`Saving a ${job.w} × ${job.h} px PNG.`);
-  } catch (e) {
-    setError("Couldn't create the PNG. Please try again.");
-  }
-});
-
-const canShareFiles = (() => {
-  try { return !!(navigator.canShare && navigator.canShare({files: [new File([""], "x.png", {type: "image/png"})]})); }
-  catch (e) { return false; }
-})();
-$("share").hidden = !canShareFiles;
-$("share").addEventListener("click", async () => {
-  if (!art) return;
-  const job = makeExport();
-  try {
-    const blob = job.ready || await job.blob;
-    await navigator.share({files: [new File([blob], fileName(), {type: "image/png"})]});
-  } catch (e) {
-    if (e && e.name === "AbortError") return; // share sheet closed by the user
-    setError(e && e.name === "NotAllowedError" ? "Tap Share again to open the share sheet." : "Sharing isn't available here. Use Save PNG instead.");
-  }
-});
-})();
-</script>
+<script src="camera.js"></script>
+<script src="app.js"></script>
 </body>
 </html>
