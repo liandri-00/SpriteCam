@@ -111,13 +111,14 @@ preview in plain JavaScript looks feasible at 160 px.
 Done: the app, save/share, self-hosted fonts, icons, README images, unit tests,
 git repository, landing section (how to use it, privacy promise), web app
 manifest, privacy note (`privacy.html`), README for GitHub visitors, GPL-3.0
-licence (`LICENSE`, "or later"). Styles
-shared by both pages live in `site.css`.
+licence (`LICENSE`, "or later"), Ko-fi support link
+(https://ko-fi.com/liandri_00, a plain link: the Ko-fi embed was not used, so
+the page still makes no third-party requests), catchphrase under the title
+("wake up. the palette has four colors."). Styles shared by both pages live in
+`site.css`. Visible text uses US spelling ("colors").
 
 Still to do:
 
-- Support link: PayPal donation link to be provided; the placeholder is marked
-  with a TODO in `index.html`.
 - Deploy to GitHub Pages from a public repo (`liandri-00/SpriteCam`, served at
   https://liandri-00.github.io/SpriteCam/). The README, footer and privacy note
   already link there.
