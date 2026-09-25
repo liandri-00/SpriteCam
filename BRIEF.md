@@ -16,7 +16,8 @@ Android/iOS store releases are explicitly out of scope for now.
 A working web app: take or choose a photo, pick a palette, see the result,
 save or share it as a PNG.
 
-- `index.html`: the page and UI logic. `privacy.html`: the privacy note.
+- `index.html`: the page. `app.js`: the UI logic (controls, rendering, live camera, save/share).
+  `camera.js`: opens the camera and grabs frames. `privacy.html`: the privacy note.
 - `site.css`: fonts, colours and layout shared by both pages.
 - `manifest.webmanifest`: lets the app be added to the home screen.
 - `pipeline.js`: the image processing. Pure functions with no DOM access; it runs
@@ -75,7 +76,10 @@ won't ship to app stores.
 6. **Display**: every art pixel covers a whole number of device pixels (the
    "cell"), so pixels stay square at any screen scaling. Only when even 1:1
    doesn't fit is the image shrunk, smoothly.
-7. **LCD effect**: drawn at display time, so switching modes is instant. Each
+7. **LCD effect**: drawn at display time by the GPU (art scaled up with crisp
+   pixels, then a grid of black lines at 1 - gap opacity; pixel-identical to
+   `lcd()` in `pipeline.js`), so switching modes is instant and the live camera
+   stays fast. Each
    pixel becomes a cell with a gap line on its right and bottom, a quarter of
    the cell wide (at least 1 px). The gap is the pixel's colour at 85% (Light)
    or 12% (Dark). On screen the grid needs a cell of at least 3 device pixels;
@@ -106,7 +110,7 @@ preview in plain JavaScript looks feasible at 160 px.
 
 ## Phased plan
 
-### Phase 1: publishable v1 (in progress)
+### Phase 1: publishable v1 (done)
 
 Done: the app, save/share, self-hosted fonts, icons, README images, unit tests,
 git repository, landing section (how to use it, privacy promise), web app
@@ -117,26 +121,36 @@ the page still makes no third-party requests), catchphrase under the title
 ("wake up. the palette has four colors."). Styles shared by both pages live in
 `site.css`. Visible text uses US spelling ("colors").
 
+Deployed 2026-09-25: public repo https://github.com/liandri-00/SpriteCam,
+served by GitHub Pages at https://liandri-00.github.io/SpriteCam/.
+
+### Phase 2: live camera (built, awaiting real-phone testing)
+
+Done:
+
+- "Take photo" opens a live viewfinder: camera frames go through the worker one
+  at a time, no WebGL needed. Measured in headless Chrome with a fake camera on
+  an emulated phone (390 px, 3x density, CPU 4x slower): about 17-24 fps.
+- The LCD grid is drawn by the GPU; drawing it pixel by pixel on the main thread
+  had cut the emulated phone from 26 to 15 fps.
+- "From the photo" warm-starts k-means from the previous frame's colours
+  (`seed` param: one round over ~2000 pixels), which also stops palette flicker.
+- Front/back camera switch (shown only with 2+ cameras). The front camera is
+  mirrored, and shots keep what was on screen.
+- Burst: 5-second countdown over a dimmed preview, then 5 shots one second
+  apart, each with a white flash (softer with reduced motion). Results go to a
+  filmstrip; tap one to use it. Close/Cancel or leaving the page stops it.
+- A shot grabs the full camera frame (capped at 1600 px) and then works like a
+  chosen photo.
+- In-app browsers (Instagram, Facebook, LinkedIn, TikTok…) fall back to the
+  phone's camera app through the file input, with an "open in your browser" hint.
+  Same fallback when the camera API is missing.
+- The camera stops when a shot is taken, on Close, and when the page is hidden.
+
 Still to do:
 
-- Deploy to GitHub Pages from a public repo (`liandri-00/SpriteCam`, served at
-  https://liandri-00.github.io/SpriteCam/). The README, footer and privacy note
-  already link there.
-
-### Phase 2: live camera
-
-- Live preview from `getUserMedia`, processed every frame. With fixed palettes
-  this may not need WebGL; measure first.
-- For "From the photo", warm-start k-means from the previous frame's centroids
-  (one iteration over ~2000 sampled pixels, measured at ~0.5 ms versus ~11 ms
-  cold), which also stops palette flicker.
-- Front/back camera switch.
-- Burst mode: 5-second countdown, then 5 shots one second apart.
-- White flash on each shot.
-- Detect in-app browsers (Instagram, LinkedIn) where camera streaming may fail,
-  and fall back to the file picker with a short "open in your browser" hint.
-- Test on real iPhones, including from the home-screen installed mode, where
-  camera streaming has historically been unreliable.
+- Test on real phones, especially iPhones, including the home-screen installed
+  mode, where camera streaming has historically been unreliable.
 
 ### Phase 3: polish
 

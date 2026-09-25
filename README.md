@@ -16,6 +16,8 @@ It runs entirely in your browser. No AI, no server, and your photos never leave 
 - **Resolution** from 144 to 320 pixels on the photo's short side. 160 is the default and keeps the retro feel.
 - **LCD effect**: a gap between pixels, light or dark, like an old handheld screen.
 - **Auto contrast** stretches dim or hazy photos across the whole palette.
+- **Live camera**: the viewfinder shows the pixel art in real time, with the front or back camera.
+- **Burst**: a 5-second countdown, then 5 shots one second apart; pick the best one from a filmstrip.
 - **Save or share** a PNG with crisp, square pixels.
 - Works on phones and can be added to the home screen.
 
@@ -34,13 +36,23 @@ and under Node for the tests.
 4. **Dither and match.** An ordered Bayer 4×4 offset is added, then each pixel maps to the nearest palette color
    in Oklab. A small lookup cache keeps this fast.
 5. **Display.** Every art pixel covers a whole number of device pixels, so pixels stay square at any screen scaling.
-   The LCD grid is drawn at display time, so switching modes is instant.
+   The LCD grid is drawn at display time by the GPU: the art is scaled up with crisp pixels and a
+   semi-transparent grid darkens the gaps, so switching modes is instant.
 
 Ordered dithering was picked over Floyd–Steinberg on purpose. With small fixed palettes, error diffusion
 tries to spread a hue the palette can't show (blue in a green palette) and leaves flat, blotchy patches.
 The regular Bayer pattern also looks more like real handheld graphics.
 
 A full render at 160 px takes about 10–35 ms on a desktop CPU.
+
+### Live camera
+
+Camera frames go through the same worker, one frame in flight at a time, so a slower phone simply
+gets fewer frames per second. With "From the photo", each frame starts k-means from the previous
+frame's colors (one round over ~2000 pixels instead of a cold start), which is cheaper and stops the
+palette from flickering. A shot grabs the full camera frame and then works like any chosen photo.
+Inside in-app browsers (Instagram, LinkedIn…), where camera streaming is unreliable, Take photo falls
+back to the phone's own camera app.
 
 ## Privacy
 
